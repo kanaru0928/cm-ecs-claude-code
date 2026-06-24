@@ -1,5 +1,6 @@
 packages:
   - cdk
+  - proxy
 
 allowBuilds:
   esbuild: true

@@ -9,6 +9,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "devDependencies": {
+    "@biomejs/biome": "2.5.0"
+  },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
