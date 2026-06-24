@@ -1,4 +1,3 @@
-import path from "node:path";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import type * as ecs from "aws-cdk-lib/aws-ecs";
@@ -15,12 +14,15 @@ type TaskManagerProps = {
 };
 
 export class TaskManager extends Construct {
+	readonly runTaskFn: lambda_nodejs.NodejsFunction;
+	readonly stopTaskFn: lambda_nodejs.NodejsFunction;
+
 	constructor(scope: Construct, id: string, props: TaskManagerProps) {
 		super(scope, id);
 
-    if (!props.taskDefinition.executionRole) {
-      throw new Error("Execution role is not defined for the task definition.");
-    }
+		if (!props.taskDefinition.executionRole) {
+			throw new Error("Execution role is not defined for the task definition.");
+		}
 
 		const table = new dynamodb.Table(this, "MyTaskTable", {
 			partitionKey: { name: "user", type: dynamodb.AttributeType.STRING },
@@ -35,7 +37,7 @@ export class TaskManager extends Construct {
 			this,
 			"RunTaskFunction",
 			{
-				entry: path.join(__dirname, "functions/runTask.ts"),
+				entry: "lib/functions/runTask.ts",
 				runtime: lambda.Runtime.NODEJS_22_X,
 				timeout: cdk.Duration.minutes(2),
 				bundling: { externalModules: ["@aws-sdk/*"] },
@@ -76,7 +78,7 @@ export class TaskManager extends Construct {
 			this,
 			"StopTaskFunction",
 			{
-				entry: path.join(__dirname, "functions/stopTask.ts"),
+				entry: "lib/functions/stopTask.ts",
 				runtime: lambda.Runtime.NODEJS_22_X,
 				timeout: cdk.Duration.minutes(2),
 				bundling: { externalModules: ["@aws-sdk/*"] },
@@ -94,5 +96,8 @@ export class TaskManager extends Construct {
 				resources: ["*"],
 			}),
 		);
+
+		this.runTaskFn = runTaskFn;
+		this.stopTaskFn = stopTaskFn;
 	}
 }

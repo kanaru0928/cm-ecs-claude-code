@@ -2,6 +2,8 @@ packages:
   - cdk
   - proxy
 
+injectWorkspacePackages: true
+
 allowBuilds:
   esbuild: true
   unrs-resolver: true
