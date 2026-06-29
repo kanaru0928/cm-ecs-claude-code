@@ -1,6 +1,7 @@
 packages:
   - cdk
   - proxy
+  - web
 
 injectWorkspacePackages: true
 
