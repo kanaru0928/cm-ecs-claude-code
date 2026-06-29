@@ -16,6 +16,8 @@ type TaskManagerProps = {
 export class TaskManager extends Construct {
 	readonly runTaskFn: lambda_nodejs.NodejsFunction;
 	readonly stopTaskFn: lambda_nodejs.NodejsFunction;
+	readonly taskTable: dynamodb.Table;
+	readonly taskSecurityGroup: ec2.SecurityGroup;
 
 	constructor(scope: Construct, id: string, props: TaskManagerProps) {
 		super(scope, id);
@@ -27,6 +29,7 @@ export class TaskManager extends Construct {
 		const table = new dynamodb.Table(this, "MyTaskTable", {
 			partitionKey: { name: "user", type: dynamodb.AttributeType.STRING },
 			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
 
 		const taskSecurityGroup = new ec2.SecurityGroup(this, "TaskSecurityGroup", {
@@ -40,7 +43,7 @@ export class TaskManager extends Construct {
 				entry: "lib/functions/runTask.ts",
 				runtime: lambda.Runtime.NODEJS_22_X,
 				timeout: cdk.Duration.minutes(2),
-				bundling: { externalModules: ["@aws-sdk/*"] },
+				bundling: { externalModules: ["@aws-sdk/*"], platform: "linux/arm64" },
 				environment: {
 					CLUSTER_ARN: props.clusterArn,
 					TASK_DEFINITION_ARN: props.taskDefinition.taskDefinitionArn,
@@ -48,6 +51,7 @@ export class TaskManager extends Construct {
 					SECURITY_GROUP_IDS: taskSecurityGroup.securityGroupId,
 					TABLE_NAME: table.tableName,
 				},
+				architecture: lambda.Architecture.ARM_64,
 			},
 		);
 
@@ -81,11 +85,12 @@ export class TaskManager extends Construct {
 				entry: "lib/functions/stopTask.ts",
 				runtime: lambda.Runtime.NODEJS_22_X,
 				timeout: cdk.Duration.minutes(2),
-				bundling: { externalModules: ["@aws-sdk/*"] },
+				bundling: { externalModules: ["@aws-sdk/*"], platform: "linux/arm64" },
 				environment: {
 					CLUSTER_ARN: props.clusterArn,
 					TABLE_NAME: table.tableName,
 				},
+				architecture: lambda.Architecture.ARM_64,
 			},
 		);
 
@@ -99,5 +104,7 @@ export class TaskManager extends Construct {
 
 		this.runTaskFn = runTaskFn;
 		this.stopTaskFn = stopTaskFn;
+		this.taskTable = table;
+		this.taskSecurityGroup = taskSecurityGroup;
 	}
 }

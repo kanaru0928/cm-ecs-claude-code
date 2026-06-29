@@ -1,4 +1,5 @@
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecs_patterns from "aws-cdk-lib/aws-ecs-patterns";
 import * as cdk from "aws-cdk-lib/core";
@@ -35,14 +36,44 @@ export class CmEcsClaudeCodeStack extends cdk.Stack {
 				desiredCount: 1,
 				taskImageOptions: {
 					image: ecs.ContainerImage.fromAsset("../", {
-            file: "proxy/Dockerfile",
-          }),
+						file: "proxy/Dockerfile",
+						platform: ecr_assets.Platform.LINUX_ARM64,
+					}),
+					environment: {
+						TABLE_NAME: taskManager.taskTable.tableName,
+						TARGET_USER: "dummy",
+						TARGET_PORT: "8080",
+						CACHE_TTL_MS: "5000",
+					},
+					containerPort: 3000,
 				},
 				circuitBreaker: {
 					enable: true,
 				},
-        minHealthyPercent: 50,
+				minHealthyPercent: 50,
+				vpc: vpc,
+				assignPublicIp: true,
+				runtimePlatform: {
+					cpuArchitecture: ecs.CpuArchitecture.ARM64,
+					operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+				},
 			},
+		);
+
+		proxyService.targetGroup.configureHealthCheck({
+			path: "/health",
+		});
+
+		proxyService.loadBalancer.setAttribute(
+			"idle_timeout.timeout_seconds",
+			"3600",
+		);
+
+		taskManager.taskTable.grantReadData(proxyService.taskDefinition.taskRole);
+
+		taskManager.taskSecurityGroup.connections.allowFrom(
+			proxyService.service.connections,
+			ec2.Port.tcp(8080),
 		);
 
 		new cdk.CfnOutput(this, "RunTaskFunctionName", {
