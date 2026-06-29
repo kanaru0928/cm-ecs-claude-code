@@ -4,13 +4,15 @@ import {
   ECSClient,
   RunTaskCommand,
 } from "@aws-sdk/client-ecs";
+import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 
 const ecs = new ECSClient({});
 const dynamo = new DynamoDBClient({});
 
-const DUMMY_USER = "dummy";
+export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
+  const sub = event.requestContext.authorizer?.jwt?.claims?.sub as string | undefined;
+  if (!sub) return { statusCode: 401, body: "Unauthorized" };
 
-export const handler = async () => {
   const runResponse = await ecs.send(
     new RunTaskCommand({
       cluster: process.env.CLUSTER_ARN,
@@ -59,12 +61,12 @@ export const handler = async () => {
     new PutItemCommand({
       TableName: process.env.TABLE_NAME,
       Item: {
-        user: { S: DUMMY_USER },
+        user: { S: sub },
         ip: { S: ip },
         taskArn: { S: task.taskArn },
       },
     }),
   );
 
-  return { taskArn: task.taskArn, ip };
+  return { statusCode: 200, body: JSON.stringify({ taskArn: task.taskArn, ip }) };
 };

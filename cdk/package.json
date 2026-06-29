@@ -12,6 +12,7 @@
     "@aws-sdk/client-dynamodb": "^3",
     "@aws-sdk/client-ecs": "^3",
     "@biomejs/biome": "2.5.0",
+    "@types/aws-lambda": "^8.10.162",
     "@types/jest": "^30",
     "@types/node": "^24.13.2",
     "@types/node-forge": "^1",

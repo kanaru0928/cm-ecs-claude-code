@@ -3,11 +3,11 @@ import {
   DynamoDBClient,
   GetItemCommand,
 } from "@aws-sdk/client-dynamodb";
-import { ECSClient, StopTaskCommand } from "@aws-sdk/client-ecs";
+import { DescribeTasksCommand, ECSClient } from "@aws-sdk/client-ecs";
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 
-const ecs = new ECSClient({});
 const dynamo = new DynamoDBClient({});
+const ecs = new ECSClient({});
 
 export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) => {
   const sub = event.requestContext.authorizer?.jwt?.claims?.sub as string;
@@ -20,18 +20,29 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
     }),
   );
 
-  const taskArn = getResponse.Item?.taskArn?.S;
-  if (!taskArn) {
-    throw new Error("No running task found");
+  if (!getResponse.Item) {
+    return { statusCode: 200, body: JSON.stringify({ status: "stopped" }) };
   }
 
-  await ecs.send(
-    new StopTaskCommand({
+  const taskArn = getResponse.Item.taskArn?.S;
+  const ip = getResponse.Item.ip?.S;
+
+  const describeResponse = await ecs.send(
+    new DescribeTasksCommand({
       cluster: process.env.CLUSTER_ARN,
-      task: taskArn,
+      tasks: [taskArn!],
     }),
   );
 
+  const task = describeResponse.tasks?.[0];
+  if (task?.lastStatus === "RUNNING") {
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ status: "running", taskArn, ip }),
+    };
+  }
+
+  // タスクが停止している場合は DynamoDB のレコードを削除して同期する
   await dynamo.send(
     new DeleteItemCommand({
       TableName: process.env.TABLE_NAME,
@@ -39,5 +50,5 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
     }),
   );
 
-  return { statusCode: 200, body: JSON.stringify({ stopped: taskArn }) };
+  return { statusCode: 200, body: JSON.stringify({ status: "stopped" }) };
 };

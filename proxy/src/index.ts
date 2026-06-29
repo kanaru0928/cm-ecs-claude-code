@@ -31,8 +31,15 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  const sub = req.headers["x-amzn-oidc-identity"];
+  if (!sub || typeof sub !== "string") {
+    res.writeHead(401, { "content-type": "text/plain" });
+    res.end("Unauthorized");
+    return;
+  }
+
   try {
-    const target = await resolveTargetUrl();
+    const target = await resolveTargetUrl(sub);
     if (!target) {
       res.writeHead(503, { "content-type": "text/plain" });
       res.end("No running task");
@@ -47,8 +54,17 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.on("upgrade", async (req, socket, head) => {
+  const sub = req.headers["x-amzn-oidc-identity"];
+  if (!sub || typeof sub !== "string") {
+    socket.write(
+      "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nUnauthorized",
+    );
+    socket.destroy();
+    return;
+  }
+
   try {
-    const target = await resolveTargetUrl();
+    const target = await resolveTargetUrl(sub);
     if (!target) {
       socket.write(
         "HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nNo running task",

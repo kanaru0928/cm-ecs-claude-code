@@ -3,11 +3,15 @@ import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecs_patterns from "aws-cdk-lib/aws-ecs-patterns";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import * as elbv2_actions from "aws-cdk-lib/aws-elasticloadbalancingv2-actions";
 import * as cdk from "aws-cdk-lib/core";
 import type { Construct } from "constructs";
 import { CodeServerCluster } from "./constructs/code-server-cluster";
+import { CognitoAuth } from "./constructs/cognito-auth";
 import { SelfSignedCert } from "./constructs/self-signed-cert";
+import { TaskApi } from "./constructs/task-api";
 import { TaskManager } from "./constructs/task-manager";
+import { WebHosting } from "./constructs/web-hosting";
 
 export class CmEcsClaudeCodeStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -48,7 +52,6 @@ export class CmEcsClaudeCodeStack extends cdk.Stack {
 					}),
 					environment: {
 						TABLE_NAME: taskManager.taskTable.tableName,
-						TARGET_USER: "dummy",
 						TARGET_PORT: "8080",
 						CACHE_TTL_MS: "5000",
 					},
@@ -100,6 +103,50 @@ export class CmEcsClaudeCodeStack extends cdk.Stack {
 		new cdk.CfnOutput(this, "CertificateArn", {
 			value: selfSignedCert.certificate.certificateArn,
 			description: "The ARN of the self-signed certificate in ACM.",
+		});
+
+		const webHosting = new WebHosting(this, "WebHosting");
+
+		const cognitoAuth = new CognitoAuth(this, "CognitoAuth", {
+			webCallbackUrls: [
+				`https://${webHosting.distribution.distributionDomainName}`,
+				"http://localhost:5173",
+			],
+			webLogoutUrls: [
+				`https://${webHosting.distribution.distributionDomainName}`,
+				"http://localhost:5173",
+			],
+			albCallbackUrl: `https://${proxyService.loadBalancer.loadBalancerDnsName}/oauth2/idpresponse`,
+		});
+
+		proxyService.listener.addAction("CognitoAuth", {
+			priority: 1,
+			conditions: [elbv2.ListenerCondition.pathPatterns(["/*"])],
+			action: new elbv2_actions.AuthenticateCognitoAction({
+				userPool: cognitoAuth.userPool,
+				userPoolClient: cognitoAuth.albClient,
+				userPoolDomain: cognitoAuth.userPoolDomain,
+				next: elbv2.ListenerAction.forward([proxyService.targetGroup]),
+			}),
+		});
+
+		const taskApi = new TaskApi(this, "TaskApi", {
+			cognitoAuth,
+			runTaskFn: taskManager.runTaskFn,
+			stopTaskFn: taskManager.stopTaskFn,
+			statusTaskFn: taskManager.statusTaskFn,
+			corsAllowOrigins: [
+				`https://${webHosting.distribution.distributionDomainName}`,
+				"http://localhost:5173",
+			],
+		});
+
+		webHosting.deployAssets({
+			userPoolId: cognitoAuth.userPool.userPoolId,
+			userPoolClientId: cognitoAuth.webClient.userPoolClientId,
+			userPoolDomain: cognitoAuth.userPoolDomain.domainName,
+			apiUrl: taskApi.httpApi.apiEndpoint,
+			proxyUrl: `https://${proxyService.loadBalancer.loadBalancerDnsName}`,
 		});
 	}
 }

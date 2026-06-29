@@ -16,6 +16,7 @@ type TaskManagerProps = {
 export class TaskManager extends Construct {
 	readonly runTaskFn: lambda_nodejs.NodejsFunction;
 	readonly stopTaskFn: lambda_nodejs.NodejsFunction;
+	readonly statusTaskFn: lambda_nodejs.NodejsFunction;
 	readonly taskTable: dynamodb.Table;
 	readonly taskSecurityGroup: ec2.SecurityGroup;
 
@@ -102,8 +103,33 @@ export class TaskManager extends Construct {
 			}),
 		);
 
+		const statusTaskFn = new lambda_nodejs.NodejsFunction(
+			this,
+			"StatusTaskFunction",
+			{
+				entry: "lib/functions/statusTask.ts",
+				runtime: lambda.Runtime.NODEJS_22_X,
+				timeout: cdk.Duration.minutes(2),
+				bundling: { externalModules: ["@aws-sdk/*"], platform: "linux/arm64" },
+				environment: {
+					TABLE_NAME: table.tableName,
+					CLUSTER_ARN: props.clusterArn,
+				},
+				architecture: lambda.Architecture.ARM_64,
+			},
+		);
+
+		table.grantReadWriteData(statusTaskFn);
+		statusTaskFn.addToRolePolicy(
+			new iam.PolicyStatement({
+				actions: ["ecs:DescribeTasks"],
+				resources: ["*"],
+			}),
+		);
+
 		this.runTaskFn = runTaskFn;
 		this.stopTaskFn = stopTaskFn;
+		this.statusTaskFn = statusTaskFn;
 		this.taskTable = table;
 		this.taskSecurityGroup = taskSecurityGroup;
 	}
