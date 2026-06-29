@@ -2,9 +2,11 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecs_patterns from "aws-cdk-lib/aws-ecs-patterns";
+import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as cdk from "aws-cdk-lib/core";
 import type { Construct } from "constructs";
 import { CodeServerCluster } from "./constructs/code-server-cluster";
+import { SelfSignedCert } from "./constructs/self-signed-cert";
 import { TaskManager } from "./constructs/task-manager";
 
 export class CmEcsClaudeCodeStack extends cdk.Stack {
@@ -29,10 +31,15 @@ export class CmEcsClaudeCodeStack extends cdk.Stack {
 			vpc: vpc,
 		});
 
+		const selfSignedCert = new SelfSignedCert(this, "SelfSignedCert");
+
 		const proxyService = new ecs_patterns.ApplicationLoadBalancedFargateService(
 			this,
 			"ProxyService",
 			{
+				certificate: selfSignedCert.certificate,
+				protocol: elbv2.ApplicationProtocol.HTTPS,
+				redirectHTTP: true,
 				desiredCount: 1,
 				taskImageOptions: {
 					image: ecs.ContainerImage.fromAsset("../", {
@@ -88,6 +95,11 @@ export class CmEcsClaudeCodeStack extends cdk.Stack {
 		new cdk.CfnOutput(this, "ProxyServiceURL", {
 			value: proxyService.loadBalancer.loadBalancerDnsName,
 			description: "The URL of the proxy service.",
+		});
+
+		new cdk.CfnOutput(this, "CertificateArn", {
+			value: selfSignedCert.certificate.certificateArn,
+			description: "The ARN of the self-signed certificate in ACM.",
 		});
 	}
 }

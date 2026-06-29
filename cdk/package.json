@@ -8,11 +8,13 @@
     "cdk": "cdk"
   },
   "devDependencies": {
+    "@aws-sdk/client-acm": "^3",
     "@aws-sdk/client-dynamodb": "^3",
     "@aws-sdk/client-ecs": "^3",
     "@biomejs/biome": "2.5.0",
     "@types/jest": "^30",
     "@types/node": "^24.13.2",
+    "@types/node-forge": "^1",
     "aws-cdk": "2.1128.1",
     "esbuild": "^0.28.1",
     "jest": "^30",
@@ -22,6 +24,7 @@
   },
   "dependencies": {
     "aws-cdk-lib": "^2.260.0",
-    "constructs": "^10.5.0"
+    "constructs": "^10.5.0",
+    "node-forge": "^1"
   }
 }
