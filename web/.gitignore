@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Runtime config (デプロイ時に CDK が生成するため管理対象外)
+public/config.json

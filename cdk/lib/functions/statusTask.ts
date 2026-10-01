@@ -34,8 +34,16 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
     }),
   );
 
+  // PROVISIONING / PENDING などの起動中も稼働扱いにする。
+  // 起動直後に停止扱いでレコードを削除すると、状態を復元できなくなるため。
+  const stoppedStatuses = ["DEACTIVATING", "STOPPING", "DEPROVISIONING", "STOPPED"];
   const task = describeResponse.tasks?.[0];
-  if (task?.lastStatus === "RUNNING") {
+  const isStopped =
+    !task ||
+    task.desiredStatus === "STOPPED" ||
+    stoppedStatuses.includes(task.lastStatus ?? "");
+
+  if (!isStopped) {
     return {
       statusCode: 200,
       body: JSON.stringify({ status: "running", taskArn, ip }),

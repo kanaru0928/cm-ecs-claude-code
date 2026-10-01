@@ -41,6 +41,12 @@ export class CmEcsClaudeCodeStack extends cdk.Stack {
 			this,
 			"ProxyService",
 			{
+				// ALB は Cognito へ小文字化したホスト名で redirect_uri を送るため、DNS 名が小文字になるよう名前を指定する
+				loadBalancerName: cdk.Names.uniqueResourceName(this, {
+					maxLength: 32,
+					separator: "-",
+					allowedSpecialCharacters: "-",
+				}).toLowerCase(),
 				certificate: selfSignedCert.certificate,
 				protocol: elbv2.ApplicationProtocol.HTTPS,
 				redirectHTTP: true,
@@ -145,6 +151,7 @@ export class CmEcsClaudeCodeStack extends cdk.Stack {
 			userPoolId: cognitoAuth.userPool.userPoolId,
 			userPoolClientId: cognitoAuth.webClient.userPoolClientId,
 			userPoolDomain: cognitoAuth.userPoolDomain.domainName,
+			region: this.region,
 			apiUrl: taskApi.httpApi.apiEndpoint,
 			proxyUrl: `https://${proxyService.loadBalancer.loadBalancerDnsName}`,
 		});
