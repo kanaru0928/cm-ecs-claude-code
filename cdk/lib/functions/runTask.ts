@@ -22,7 +22,7 @@ export const handler = async (event: APIGatewayProxyEventV2WithJWTAuthorizer) =>
         awsvpcConfiguration: {
           subnets: process.env.SUBNET_IDS!.split(","),
           securityGroups: process.env.SECURITY_GROUP_IDS!.split(","),
-          assignPublicIp: "ENABLED",
+          assignPublicIp: "DISABLED",
         },
       },
     }),

@@ -48,7 +48,7 @@ export class TaskManager extends Construct {
 				environment: {
 					CLUSTER_ARN: props.clusterArn,
 					TASK_DEFINITION_ARN: props.taskDefinition.taskDefinitionArn,
-					SUBNET_IDS: props.vpc.publicSubnets.map((s) => s.subnetId).join(","),
+					SUBNET_IDS: props.vpc.privateSubnets.map((s) => s.subnetId).join(","),
 					SECURITY_GROUP_IDS: taskSecurityGroup.securityGroupId,
 					TABLE_NAME: table.tableName,
 				},

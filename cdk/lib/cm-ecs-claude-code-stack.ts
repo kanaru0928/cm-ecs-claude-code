@@ -19,6 +19,9 @@ export class CmEcsClaudeCodeStack extends cdk.Stack {
 
 		const vpc = new ec2.Vpc(this, "MyVpc", {
 			maxAzs: 2,
+			gatewayEndpoints: {
+				DynamoDB: { service: ec2.GatewayVpcEndpointAwsService.DYNAMODB },
+			},
 		});
 
 		const codeServer = new CodeServerCluster(this, "CodeServerCluster", {
@@ -68,7 +71,6 @@ export class CmEcsClaudeCodeStack extends cdk.Stack {
 				},
 				minHealthyPercent: 50,
 				vpc: vpc,
-				assignPublicIp: true,
 				runtimePlatform: {
 					cpuArchitecture: ecs.CpuArchitecture.ARM64,
 					operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
